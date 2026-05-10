@@ -36,7 +36,7 @@ def _is_power_of_2(n):
 
 class MSDeformAttn(nn.Module):
     def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
-        """
+        r"""
         Multi-Scale Deformable Attention Module
         :param d_model      hidden dimension
         :param n_levels     number of feature levels
@@ -83,7 +83,7 @@ class MSDeformAttn(nn.Module):
         constant_(self.output_proj.bias.data, 0.)
 
     def forward(self, query, reference_points, input_flatten, input_spatial_shapes, input_level_start_index, input_padding_mask=None):
-        """
+        r"""
         :param query                       (N, Length_{query}, C)
         :param reference_points            (N, Length_{query}, n_levels, 2), range in [0, 1], top-left (0,0), bottom-right (1, 1), including padding area
                                         or (N, Length_{query}, n_levels, 4), add additional (w, h) to form reference boxes

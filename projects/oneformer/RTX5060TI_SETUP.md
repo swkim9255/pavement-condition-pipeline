@@ -1,17 +1,15 @@
-# RTX 5060 Ti OneFormer Setup
+# RTX 5060 Ti Setup
 
-The original OneFormer installation targets `torch==1.10.1` and CUDA 11.3.
-That stack is not suitable for RTX 50-series Blackwell GPUs. Use the setup
-below for the Cityscapes Swin checkpoint in this workspace.
+This trimmed OneFormer project targets Mapillary Vistas Swin-L semantic
+inference on RTX 50-series / Blackwell GPUs.
 
 ## Prerequisites
 
 - NVIDIA driver compatible with CUDA 12.8.
-- CUDA Toolkit 12.8 installed with `nvcc` available at `/usr/local/cuda-12.8/bin/nvcc`.
+- CUDA Toolkit 12.8 with `nvcc` available at `/usr/local/cuda-12.8/bin/nvcc`.
 - Conda available in `PATH`.
 
-If CUDA Toolkit 12.8 is installed elsewhere, export `CUDA_HOME` before running
-the setup script.
+If CUDA Toolkit 12.8 is installed elsewhere:
 
 ```bash
 export CUDA_HOME=/path/to/cuda-12.8
@@ -24,17 +22,9 @@ bash tools/setup_rtx5060ti_env.sh
 ```
 
 The script creates or reuses the `oneformer5060` conda environment, installs
-PyTorch `2.10.0+cu128`, installs RTX 50-compatible OneFormer demo dependencies,
-clones Detectron2 if it is not already present, builds Detectron2 from the
-local source checkout, and rebuilds the
-MSDeformAttn CUDA extension for `sm_120`.
-
-Useful overrides:
-
-```bash
-ONEFORMER_ENV_NAME=oneformer5060 CUDA_HOME=/usr/local/cuda-12.8 TORCH_CUDA_ARCH_LIST=12.0 \
-  bash tools/setup_rtx5060ti_env.sh
-```
+PyTorch `2.10.0+cu128`, installs inference dependencies, clones Detectron2 when
+needed, builds Detectron2, and rebuilds the OneFormer MSDeformAttn CUDA op for
+`sm_120`.
 
 ## Verify
 
@@ -48,17 +38,15 @@ Expected:
 - `torch` reports a CUDA 12.8 build.
 - `torch.cuda.is_available()` is `True`.
 - GPU compute capability is `(12, 0)` for RTX 5060 Ti.
-- `detectron2`, `oneformer`, `natten`, `cv2`, and `MultiScaleDeformableAttention` import successfully.
+- `detectron2`, `oneformer`, `cv2`, and `MultiScaleDeformableAttention` import
+  successfully.
 
-## Demo Inference
-
-After extracting video frames into `inputs/RGB_frames`, run:
+## Inference
 
 ```bash
-python demo/demo.py \
-  --config-file configs/cityscapes/swin/oneformer_swin_large_bs16_90k.yaml \
-  --input inputs/RGB_frames/*.jpg \
-  --output outputs/RGB_video_oneformer \
-  --task panoptic \
-  --opts MODEL.IS_TRAIN False MODEL.IS_DEMO True MODEL.WEIGHTS checkpoints/oneformer_cityscapes_swin_large.pth
+python tools/export_mapillary_bike_lane_masks.py \
+  --config-file configs/mapillary_vistas/swin/oneformer_swin_large_bs16_300k.yaml \
+  --weights checkpoints/oneformer_mapillary_swin_large.pth \
+  --input 'inputs/RGB_frames/*.jpg' \
+  --output outputs/bike_lane_masks
 ```

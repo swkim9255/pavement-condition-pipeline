@@ -71,10 +71,9 @@ Activate it with:
   conda activate ${ENV_NAME}
 
 Run inference with:
-  python demo/demo.py \\
-    --config-file configs/cityscapes/swin/oneformer_swin_large_bs16_90k.yaml \\
+  python tools/export_mapillary_bike_lane_masks.py \\
+    --config-file configs/mapillary_vistas/swin/oneformer_swin_large_bs16_300k.yaml \\
+    --weights checkpoints/oneformer_mapillary_swin_large.pth \\
     --input inputs/RGB_frames/*.jpg \\
-    --output outputs/RGB_video_oneformer \\
-    --task panoptic \\
-    --opts MODEL.IS_TRAIN False MODEL.IS_DEMO True MODEL.WEIGHTS checkpoints/oneformer_cityscapes_swin_large.pth
+    --output outputs/bike_lane_masks
 EOF

@@ -30,8 +30,6 @@ from detectron2.utils.logger import setup_logger  # noqa: E402
 
 from oneformer import (  # noqa: E402
     add_common_config,
-    add_convnext_config,
-    add_dinat_config,
     add_oneformer_config,
     add_swin_config,
 )
@@ -45,8 +43,6 @@ def setup_cfg(args):
     add_deeplab_config(cfg)
     add_common_config(cfg)
     add_swin_config(cfg)
-    add_dinat_config(cfg)
-    add_convnext_config(cfg)
     add_oneformer_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)

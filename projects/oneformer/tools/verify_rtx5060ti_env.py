@@ -32,7 +32,7 @@ if capability[0] < 12:
         f"expected a Blackwell/RTX 50-series GPU with compute capability 12.x, got {capability}"
     )
 
-for module_name in ("detectron2", "natten", "oneformer", "cv2"):
+for module_name in ("detectron2", "oneformer", "cv2"):
     require_module(module_name)
 
 try:

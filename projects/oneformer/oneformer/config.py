@@ -2,8 +2,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from detectron2.config import CfgNode as CN
 
-__all__ = ["add_common_config", "add_oneformer_config", "add_swin_config", 
-            "add_dinat_config", "add_convnext_config"]
+__all__ = ["add_common_config", "add_oneformer_config", "add_swin_config"]
 
 def add_common_config(cfg):
     """
@@ -40,7 +39,7 @@ def add_common_config(cfg):
     cfg.SOLVER.OPTIMIZER = "ADAMW"
     cfg.SOLVER.BACKBONE_MULTIPLIER = 0.1
 
-    # wandb
+    # retained for compatibility with upstream configs
     cfg.WANDB = CN()
     cfg.WANDB.PROJECT = "OneFormer"
     cfg.WANDB.NAME = None
@@ -171,40 +170,3 @@ def add_swin_config(cfg):
     cfg.MODEL.SWIN.PATCH_NORM = True
     cfg.MODEL.SWIN.OUT_FEATURES = ["res2", "res3", "res4", "res5"]
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
-
-def add_dinat_config(cfg):
-    """
-    Add config for NAT Backbone.
-    """
-
-    # DINAT transformer backbone
-    cfg.MODEL.DiNAT = CN()
-    cfg.MODEL.DiNAT.DEPTHS = [3, 4, 18, 5]
-    cfg.MODEL.DiNAT.OUT_FEATURES = ["res2", "res3", "res4", "res5"]
-    cfg.MODEL.DiNAT.EMBED_DIM = 64
-    cfg.MODEL.DiNAT.MLP_RATIO = 3.0
-    cfg.MODEL.DiNAT.NUM_HEADS = [2, 4, 8, 16]
-    cfg.MODEL.DiNAT.DROP_PATH_RATE = 0.2
-    cfg.MODEL.DiNAT.KERNEL_SIZE = 7
-    cfg.MODEL.DiNAT.DILATIONS = [[1, 16, 1], [1, 4, 1, 8], [1, 2, 1, 3, 1, 4], [1, 2, 1, 2, 1]]
-    cfg.MODEL.DiNAT.OUT_INDICES = (0, 1, 2, 3)
-    cfg.MODEL.DiNAT.QKV_BIAS = True
-    cfg.MODEL.DiNAT.QK_SCALE = None
-    cfg.MODEL.DiNAT.DROP_RATE = 0
-    cfg.MODEL.DiNAT.ATTN_DROP_RATE = 0.
-    cfg.MODEL.DiNAT.IN_PATCH_SIZE = 4
-
-def add_convnext_config(cfg):
-    """
-    Add config for ConvNeXt Backbone.
-    """
-    
-    # swin transformer backbone
-    cfg.MODEL.CONVNEXT = CN()
-    cfg.MODEL.CONVNEXT.IN_CHANNELS = 3
-    cfg.MODEL.CONVNEXT.DEPTHS = [3, 3, 27, 3]
-    cfg.MODEL.CONVNEXT.DIMS = [192, 384, 768, 1536]
-    cfg.MODEL.CONVNEXT.DROP_PATH_RATE = 0.4
-    cfg.MODEL.CONVNEXT.LSIT = 1.0
-    cfg.MODEL.CONVNEXT.OUT_INDICES = [0, 1, 2, 3]
-    cfg.MODEL.CONVNEXT.OUT_FEATURES = ["res2", "res3", "res4", "res5"]

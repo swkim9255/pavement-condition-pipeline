@@ -27,8 +27,6 @@ from oneformer import (
     add_oneformer_config,
     add_common_config,
     add_swin_config,
-    add_dinat_config,
-    add_convnext_config,
 )
 from predictor import VisualizationDemo
 
@@ -41,11 +39,14 @@ def setup_cfg(args):
     add_deeplab_config(cfg)
     add_common_config(cfg)
     add_swin_config(cfg)
-    add_dinat_config(cfg)
-    add_convnext_config(cfg)
     add_oneformer_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    cfg.defrost()
+    cfg.MODEL.IS_TRAIN = False
+    cfg.MODEL.IS_DEMO = True
+    if args.weights:
+        cfg.MODEL.WEIGHTS = args.weights
     cfg.freeze()
     return cfg
 
@@ -54,11 +55,16 @@ def get_parser():
     parser = argparse.ArgumentParser(description="oneformer demo for builtin configs")
     parser.add_argument(
         "--config-file",
-        default="../configs/ade20k/swin/oneformer_swin_large_IN21k_384_bs16_160k.yaml",
+        default="../configs/mapillary_vistas/swin/oneformer_swin_large_bs16_300k.yaml",
         metavar="FILE",
         help="path to config file",
     )
     parser.add_argument("--task", help="Task type")
+    parser.add_argument(
+        "--weights",
+        default="../checkpoints/oneformer_mapillary_swin_large.pth",
+        help="path to OneFormer checkpoint",
+    )
     parser.add_argument(
         "--input",
         nargs="+",

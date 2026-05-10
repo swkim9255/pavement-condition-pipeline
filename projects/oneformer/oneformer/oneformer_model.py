@@ -17,10 +17,6 @@ from detectron2.modeling.postprocessing import sem_seg_postprocess
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 from detectron2.utils.memory import retry_if_cuda_oom
 
-from .modeling.criterion import SetCriterion
-from .modeling.matcher import HungarianMatcher
-from einops import rearrange
-from .modeling.transformer_decoder.text_transformer import TextTransformer
 from .modeling.transformer_decoder.oneformer_transformer_decoder import MLP
 from oneformer.data.tokenizer import SimpleTokenizer, Tokenize
 
@@ -37,10 +33,6 @@ class OneFormer(nn.Module):
         backbone: Backbone,
         sem_seg_head: nn.Module,
         task_mlp: nn.Module,
-        text_encoder: nn.Module,
-        text_projector: nn.Module,
-        criterion: nn.Module,
-        prompt_ctx: nn.Embedding,
         num_queries: int,
         object_mask_threshold: float,
         overlap_threshold: float,
@@ -56,14 +48,12 @@ class OneFormer(nn.Module):
         detection_on: bool,
         test_topk_per_image: int,
         task_seq_len: int,
-        max_seq_len: int,
         is_demo: bool,
     ):
         """
         Args:
             backbone: a backbone module, must follow detectron2's backbone interface
             sem_seg_head: a module that predicts semantic segmentation from backbone features
-            criterion: a module that defines the loss
             num_queries: int, number of queries
             object_mask_threshold: float, threshold to filter query based on classification score
                 for panoptic segmentation inference
@@ -87,10 +77,6 @@ class OneFormer(nn.Module):
         self.backbone = backbone
         self.sem_seg_head = sem_seg_head
         self.task_mlp = task_mlp
-        self.text_encoder = text_encoder
-        self.text_projector = text_projector
-        self.prompt_ctx = prompt_ctx
-        self.criterion = criterion
         self.num_queries = num_queries
         self.overlap_threshold = overlap_threshold
         self.object_mask_threshold = object_mask_threshold
@@ -110,11 +96,8 @@ class OneFormer(nn.Module):
         self.detection_on = detection_on
         self.test_topk_per_image = test_topk_per_image
 
-        self.text_tokenizer = Tokenize(SimpleTokenizer(), max_seq_len=max_seq_len)
         self.task_tokenizer = Tokenize(SimpleTokenizer(), max_seq_len=task_seq_len)
         self.is_demo = is_demo
-
-        self.thing_indices = [k for k in self.metadata.thing_dataset_id_to_contiguous_id.keys()]
 
         if not self.semantic_on:
             assert self.sem_seg_postprocess_before_inference
@@ -125,79 +108,25 @@ class OneFormer(nn.Module):
         sem_seg_head = build_sem_seg_head(cfg, backbone.output_shape())
 
         if cfg.MODEL.IS_TRAIN:
-            text_encoder = TextTransformer(context_length=cfg.MODEL.TEXT_ENCODER.CONTEXT_LENGTH,
-                                    width=cfg.MODEL.TEXT_ENCODER.WIDTH,
-                                    layers=cfg.MODEL.TEXT_ENCODER.NUM_LAYERS,
-                                    vocab_size=cfg.MODEL.TEXT_ENCODER.VOCAB_SIZE)
-            text_projector = MLP(text_encoder.width, cfg.MODEL.ONE_FORMER.HIDDEN_DIM, 
-                                cfg.MODEL.ONE_FORMER.HIDDEN_DIM, cfg.MODEL.TEXT_ENCODER.PROJ_NUM_LAYERS)
-            if cfg.MODEL.TEXT_ENCODER.N_CTX > 0:
-                prompt_ctx = nn.Embedding(cfg.MODEL.TEXT_ENCODER.N_CTX, cfg.MODEL.TEXT_ENCODER.WIDTH)
-            else:
-                prompt_ctx = None
-        else:
-            text_encoder = None
-            text_projector = None
-            prompt_ctx = None
+            raise ValueError("This trimmed OneFormer package supports inference only. Set MODEL.IS_TRAIN False.")
 
         task_mlp = MLP(cfg.INPUT.TASK_SEQ_LEN, cfg.MODEL.ONE_FORMER.HIDDEN_DIM,
                         cfg.MODEL.ONE_FORMER.HIDDEN_DIM, 2)
 
-        # Loss parameters:
-        deep_supervision = cfg.MODEL.ONE_FORMER.DEEP_SUPERVISION
-        no_object_weight = cfg.MODEL.ONE_FORMER.NO_OBJECT_WEIGHT
-
-        # loss weights
-        class_weight = cfg.MODEL.ONE_FORMER.CLASS_WEIGHT
-        dice_weight = cfg.MODEL.ONE_FORMER.DICE_WEIGHT
-        mask_weight = cfg.MODEL.ONE_FORMER.MASK_WEIGHT
-        contrastive_weight = cfg.MODEL.ONE_FORMER.CONTRASTIVE_WEIGHT
-        
-        # building criterion
-        matcher = HungarianMatcher(
-            cost_class=class_weight,
-            cost_mask=mask_weight,
-            cost_dice=dice_weight,
-            num_points=cfg.MODEL.ONE_FORMER.TRAIN_NUM_POINTS,
-        )
-
-        weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, 
-                        "loss_dice": dice_weight, "loss_contrastive": contrastive_weight}
-
-        
-        if deep_supervision:
-            dec_layers = cfg.MODEL.ONE_FORMER.DEC_LAYERS
-            aux_weight_dict = {}
-            for i in range(dec_layers - 1):
-                aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
-            weight_dict.update(aux_weight_dict)
-
-        losses = ["labels", "masks", "contrastive"]
-
-        criterion = SetCriterion(
-            sem_seg_head.num_classes,
-            matcher=matcher,
-            weight_dict=weight_dict,
-            eos_coef=no_object_weight,
-            contrast_temperature=cfg.MODEL.ONE_FORMER.CONTRASTIVE_TEMPERATURE,
-            losses=losses,
-            num_points=cfg.MODEL.ONE_FORMER.TRAIN_NUM_POINTS,
-            oversample_ratio=cfg.MODEL.ONE_FORMER.OVERSAMPLE_RATIO,
-            importance_sample_ratio=cfg.MODEL.ONE_FORMER.IMPORTANCE_SAMPLE_RATIO,
+        metadata_name = (
+            cfg.DATASETS.TEST_PANOPTIC[0]
+            if len(cfg.DATASETS.TEST_PANOPTIC) and cfg.DATASETS.TEST_PANOPTIC[0]
+            else cfg.DATASETS.TRAIN[0]
         )
 
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
             "task_mlp": task_mlp,
-            "prompt_ctx": prompt_ctx,
-            "text_encoder": text_encoder,
-            "text_projector": text_projector,
-            "criterion": criterion,
             "num_queries": cfg.MODEL.ONE_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.TEST.OBJECT_MASK_THRESHOLD,
             "overlap_threshold": cfg.MODEL.TEST.OVERLAP_THRESHOLD,
-            "metadata": MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
+            "metadata": MetadataCatalog.get(metadata_name),
             "size_divisibility": cfg.MODEL.ONE_FORMER.SIZE_DIVISIBILITY,
             "sem_seg_postprocess_before_inference": (
                 cfg.MODEL.TEST.SEM_SEG_POSTPROCESSING_BEFORE_INFERENCE
@@ -213,7 +142,6 @@ class OneFormer(nn.Module):
             "detection_on": cfg.MODEL.TEST.DETECTION_ON,
             "test_topk_per_image": cfg.TEST.DETECTIONS_PER_IMAGE,
             "task_seq_len": cfg.INPUT.TASK_SEQ_LEN,
-            "max_seq_len": cfg.INPUT.MAX_SEQ_LEN,
             "is_demo": cfg.MODEL.IS_DEMO,
         }
 
@@ -221,29 +149,6 @@ class OneFormer(nn.Module):
     def device(self):
         return self.pixel_mean.device
 
-    def encode_text(self, text):
-        assert text.ndim in [2, 3], text.ndim
-        b = text.shape[0]
-        squeeze_dim = False
-        num_text = 1
-        if text.ndim == 3:
-            num_text = text.shape[1]
-            text = rearrange(text, 'b n l -> (b n) l', n=num_text)
-            squeeze_dim = True
-
-        # [B, C]
-        x = self.text_encoder(text)
-
-        text_x = self.text_projector(x)
-
-        if squeeze_dim:
-            text_x = rearrange(text_x, '(b n) c -> b n c', n=num_text)
-            if self.prompt_ctx is not None:
-                text_ctx = self.prompt_ctx.weight.unsqueeze(0).repeat(text_x.shape[0], 1, 1)
-                text_x = torch.cat([text_x, text_ctx], dim=1)
-        
-        return {"texts": text_x}
-    
     def forward(self, batched_inputs):
         """
         Args:
@@ -280,28 +185,7 @@ class OneFormer(nn.Module):
         outputs = self.sem_seg_head(features, tasks)
 
         if self.training:
-            texts = torch.cat([self.text_tokenizer(x["text"]).to(self.device).unsqueeze(0) for x in batched_inputs], dim=0)
-            texts_x = self.encode_text(texts)
-
-            outputs = {**outputs, **texts_x}
-
-            # mask classification target
-            if "instances" in batched_inputs[0]:
-                gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-                targets = self.prepare_targets(gt_instances, images)
-            else:
-                targets = None
-
-            # bipartite matching-based loss
-            losses = self.criterion(outputs, targets)
-
-            for k in list(losses.keys()):
-                if k in self.criterion.weight_dict:
-                    losses[k] *= self.criterion.weight_dict[k]
-                else:
-                    # remove this loss if not specified in `weight_dict`
-                    losses.pop(k)
-            return losses
+            raise RuntimeError("This trimmed OneFormer package supports inference only.")
         else:
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
@@ -352,22 +236,6 @@ class OneFormer(nn.Module):
                     processed_results[-1]["box_instances"] = bbox_r
 
             return processed_results
-
-    def prepare_targets(self, targets, images):
-        h_pad, w_pad = images.tensor.shape[-2:]
-        new_targets = []
-        for targets_per_image in targets:
-            # pad gt
-            gt_masks = targets_per_image.gt_masks
-            padded_masks = torch.zeros((gt_masks.shape[0], h_pad, w_pad), dtype=gt_masks.dtype, device=gt_masks.device)
-            padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = gt_masks
-            new_targets.append(
-                {
-                    "labels": targets_per_image.gt_classes,
-                    "masks": padded_masks,
-                }
-            )
-        return new_targets
 
     def semantic_inference(self, mask_cls, mask_pred):
         mask_cls = F.softmax(mask_cls, dim=-1)[..., :-1]
@@ -466,10 +334,6 @@ class OneFormer(nn.Module):
             labels_per_image = labels_per_image[keep]
             mask_pred = mask_pred[keep]
         
-        if 'ade20k' in self.metadata.name and not self.is_demo and "instance" in task_type:
-            for i in range(labels_per_image.shape[0]):
-                labels_per_image[i] = self.thing_indices.index(labels_per_image[i].item())
-
         result = Instances(image_size)
         # mask (before sigmoid)
         result.pred_masks = (mask_pred > 0).float()
