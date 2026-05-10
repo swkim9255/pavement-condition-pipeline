@@ -1,0 +1,29 @@
+**/__pycache__/
+**/*.pyc
+**/.ipynb_checkpoints/
+
+# Runtime data and generated artifacts
+projects/*/inputs/
+projects/*/outputs/
+projects/*/checkpoints/
+projects/*/runs/
+projects/*/logs/
+projects/*/wandb/
+
+# Model artifacts
+**/*.pth
+**/*.pt
+**/*.ckpt
+**/*.onnx
+
+# Local environments
+.env
+.venv/
+venv/
+env/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*~

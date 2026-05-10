@@ -1,0 +1,43 @@
+# Runtime dependencies for RTX 50-series / Blackwell inference.
+#
+# Install PyTorch first with the CUDA 12.8 wheel, then install this file:
+#   python -m pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 \
+#     --index-url https://download.pytorch.org/whl/cu128
+#   python -m pip install -r requirements_rtx5060ti_cu128.txt
+#
+# Do not use requirements.txt for this environment: it points NATTEN at
+# torch 1.10.1 / CUDA 11.3 wheels, which cannot target RTX 5060 Ti.
+
+--find-links https://whl.natten.org
+
+opencv-python
+cython
+scipy
+shapely
+h5py
+submitit
+scikit-image
+timm==0.4.12
+einops==0.4.1
+icecream
+ftfy
+regex
+inflect
+diffdist
+tqdm
+yacs
+termcolor
+tabulate
+cloudpickle
+tensorboard
+wandb
+fvcore
+iopath
+omegaconf
+hydra-core
+packaging
+pycocotools
+ninja
+panopticapi @ git+https://github.com/cocodataset/panopticapi.git
+cityscapesScripts @ git+https://github.com/mcordts/cityscapesScripts.git
+natten==0.21.6+torch2100cu128
